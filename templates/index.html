@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sentiment Analysis</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #05050a;
+      --surface:    #0d0d14;
+      --surface2:   #12121c;
+      --border:     #1a1a2e;
+      --border2:    #252540;
+      --text:       #f0f0ff;
+      --muted:      #5a5a7a;
+      --muted2:     #8080a0;
+      --accent:     #7c6aff;
+      --accent2:    #a594ff;
+      --glow:       rgba(124,106,255,0.15);
+      --pos:        #10b981;
+      --neg:        #f43f5e;
+      --neu:        #38bdf8;
+      --irr:        #f59e0b;
+      --pos-bg:     rgba(16,185,129,0.08);
+      --neg-bg:     rgba(244,63,94,0.08);
+      --neu-bg:     rgba(56,189,248,0.08);
+      --irr-bg:     rgba(245,158,11,0.08);
+      --pos-border: rgba(16,185,129,0.25);
+      --neg-border: rgba(244,63,94,0.25);
+      --neu-border: rgba(56,189,248,0.25);
+      --irr-border: rgba(245,158,11,0.25);
+      --r:          12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 16px 80px;
+      overflow-x: hidden;
+    }
+
+    /* ── Background glow ── */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 500px;
+      background: radial-gradient(ellipse, rgba(124,106,255,0.12) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      padding: 60px 0 44px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header-badge {
+      display: inline-block;
+      background: rgba(124,106,255,0.12);
+      border: 1px solid rgba(124,106,255,0.3);
+      color: var(--accent2);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 20px;
+      margin-bottom: 18px;
+    }
+
+    .header h1 {
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.15;
+      background: linear-gradient(135deg, #fff 30%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header p {
+      margin-top: 12px;
+      color: var(--muted2);
+      font-size: 0.95rem;
+      font-weight: 400;
+      max-width: 420px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.6;
+    }
+
+    /* ── Stats row ── */
+    .stats-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 28px;
+      flex-wrap: wrap;
+    }
+    .stat-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 0.78rem;
+      color: var(--muted2);
+    }
+    .stat-pill strong { color: var(--text); font-weight: 600; }
+
+    /* ── Main wrapper ── */
+    .main {
+      width: 100%;
+      max-width: 720px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.03),
+                  0 24px 64px rgba(0,0,0,0.5);
+    }
+
+    /* ── Tabs ── */
+    .tab-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 6px;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      padding: 11px 16px;
+      background: transparent;
+      border: none;
+      border-radius: 10px;
+      color: var(--muted2);
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: inherit;
+      letter-spacing: .3px;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .tab-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .tab-btn.active {
+      background: var(--surface);
+      color: var(--accent2);
+      box-shadow: 0 1px 8px rgba(0,0,0,0.3);
+    }
+
+    /* ── Panel ── */
+    .tab-panel { display: none; padding: 28px; }
+    .tab-panel.active { display: block; }
+
+    .field-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      color: var(--muted2);
+      margin-bottom: 8px;
+    }
+
+    textarea, input[type="text"], input[type="number"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--r);
+      color: var(--text);
+      padding: 13px 16px;
+      font-size: 0.93rem;
+      font-family: inherit;
+      font-weight: 400;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      -webkit-appearance: none;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 130px;
+      line-height: 1.65;
+    }
+    textarea:focus, input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,106,255,0.12);
+    }
+    textarea::placeholder, input::placeholder { color: var(--muted); }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+
+    /* ── Button ── */
+    .btn {
+      margin-top: 18px;
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--accent) 0%, #9b8aff 100%);
+      border: none;
+      border-radius: var(--r);
+      color: #fff;
+      font-size: 0.92rem;
+      font-weight: 700;
+      font-family: inherit;
+      letter-spacing: .3px;
+      cursor: pointer;
+      transition: opacity .2s, transform .1s, box-shadow .2s;
+      box-shadow: 0 4px 20px rgba(124,106,255,0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn:hover { opacity: .92; box-shadow: 0 6px 28px rgba(124,106,255,0.45); }
+    .btn:active { transform: scale(.99); }
+    .btn:disabled { opacity: .35; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn svg { width: 16px; height: 16px; }
+
+    /* ── Result area ── */
+    #result-area { padding: 0 28px 28px; }
+
+    .section-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border2), transparent);
+      margin-bottom: 24px;
+    }
+
+    /* ── Single result ── */
+    .result-card {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+    .result-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+    .result-card.card-Positive::before  { background: linear-gradient(90deg, var(--pos), transparent); }
+    .result-card.card-Negative::before  { background: linear-gradient(90deg, var(--neg), transparent); }
+    .result-card.card-Neutral::before   { background: linear-gradient(90deg, var(--neu), transparent); }
+    .result-card.card-Irrelevant::before{ background: linear-gradient(90deg, var(--irr), transparent); }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1px solid;
+    }
+    .badge-Positive   { background: var(--pos-bg);  color: var(--pos); border-color: var(--pos-border); }
+    .badge-Negative   { background: var(--neg-bg);  color: var(--neg); border-color: var(--neg-border); }
+    .badge-Neutral    { background: var(--neu-bg);  color: var(--neu); border-color: var(--neu-border); }
+    .badge-Irrelevant { background: var(--irr-bg);  color: var(--irr); border-color: var(--irr-border); }
+
+    .conf-tag {
+      font-size: 0.78rem;
+      color: var(--muted2);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border2);
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+    .conf-tag strong { color: var(--text); }
+
+    .tweet-text {
+      font-size: 0.92rem;
+      line-height: 1.7;
+      color: #b0b0cc;
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 10px;
+      border-left: 3px solid var(--border2);
+    }
+
+    /* ── Score bars ── */
+    .bars { display: flex; flex-direction: column; gap: 9px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; }
+    .bar-lbl { width: 78px; font-size: 0.75rem; color: var(--muted2); font-weight: 500; flex-shrink: 0; }
+    .bar-track {
+      flex: 1;
+      height: 5px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .bar-fill { height: 100%; border-radius: 3px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+    .fill-Positive   { background: linear-gradient(90deg, var(--pos), #34d399); }
+    .fill-Negative   { background: linear-gradient(90deg, var(--neg), #fb7185); }
+    .fill-Neutral    { background: linear-gradient(90deg, var(--neu), #7dd3fc); }
+    .fill-Irrelevant { background: linear-gradient(90deg, var(--irr), #fcd34d); }
+    .bar-pct { width: 36px; text-align: right; font-size: 0.75rem; color: var(--muted2); font-weight: 500; }
+
+    /* ── Summary ── */
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .summary-cell {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 14px;
+      padding: 18px 10px;
+      text-align: center;
+      transition: border-color .2s;
+    }
+    .summary-cell:hover { border-color: var(--border2); }
+    .s-pct {
+      font-size: 1.6rem;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -1px;
+    }
+    .s-lbl {
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      font-weight: 600;
+    }
+    .pct-Positive   { color: var(--pos); }
+    .pct-Negative   { color: var(--neg); }
+    .pct-Neutral    { color: var(--neu); }
+    .pct-Irrelevant { color: var(--irr); }
+
+    /* ── Tweet list ── */
+    .tweet-list { display: flex; flex-direction: column; gap: 12px; }
+
+    /* ── Loading ── */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5,5,10,0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .3s ease;
+    }
+    .loading-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .loading-box {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 24px;
+      padding: 44px 48px;
+      text-align: center;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+      max-width: 340px;
+      width: 90%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .loading-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+      animation: shimmer 2s linear infinite;
+      background-size: 200% 100%;
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position:  200% 0; }
+    }
+
+    /* Leaf spinner */
+    .leaf-wrap {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 26px;
+      animation: leaf-rotate 3s linear infinite;
+    }
+    @keyframes leaf-rotate {
+      to { transform: rotate(360deg); }
+    }
+    .leaf {
+      position: absolute;
+      width: 34px;
+      height: 34px;
+    }
+    .leaf::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50% 0 50% 0;
+      animation: leaf-breathe 1.5s ease-in-out infinite;
+    }
+    .leaf-1 { top: 0;   left: 50%; transform: translateX(-50%);
+      }
+    .leaf-1::before {
+      background: linear-gradient(135deg, #7c6aff, #a594ff);
+      box-shadow: 0 0 12px rgba(124,106,255,0.6);
+      animation-delay: 0s;
+    }
+    .leaf-2 { top: 50%; right: 0; transform: translateY(-50%);
+      }
+    .leaf-2::before {
+      background: linear-gradient(135deg, #a594ff, #c4b8ff);
+      box-shadow: 0 0 12px rgba(165,148,255,0.5);
+      border-radius: 0 50% 0 50%;
+      animation-delay: -0.375s;
+    }
+    .leaf-3 { bottom: 0; left: 50%; transform: translateX(-50%);
+      }
+    .leaf-3::before {
+      background: linear-gradient(135deg, #5a4de6, #7c6aff);
+      box-shadow: 0 0 12px rgba(90,77,230,0.6);
+      animation-delay: -0.75s;
+    }
+    .leaf-4 { top: 50%; left: 0; transform: translateY(-50%);
+      }
+    .leaf-4::before {
+      background: linear-gradient(135deg, #b8adff, #8b85ff);
+      box-shadow: 0 0 12px rgba(184,173,255,0.5);
+      border-radius: 0 50% 0 50%;
+      animation-delay: -1.125s;
+    }
+    @keyframes leaf-breathe {
+      0%,100% { transform: scale(1);    opacity: 1;   }
+      50%      { transform: scale(0.75); opacity: 0.6; }
+    }
+    .leaf-center {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 12px; height: 12px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 16px var(--accent), 0 0 32px rgba(124,106,255,0.5);
+      animation: center-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes center-pulse {
+      0%,100% { transform: translate(-50%,-50%) scale(1);    opacity: 1;   }
+      50%      { transform: translate(-50%,-50%) scale(0.55); opacity: 0.5; }
+    }
+
+    .loading-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+      letter-spacing: -.2px;
+    }
+
+    .loading-sub {
+      font-size: 0.82rem;
+      color: var(--muted2);
+      line-height: 1.5;
+      min-height: 36px;
+    }
+
+    /* Animated dots */
+    .dots::after {
+      content: '';
+      animation: dots 1.5s steps(4, end) infinite;
+    }
+    @keyframes dots {
+      0%  { content: '';    }
+      25% { content: '.';   }
+      50% { content: '..';  }
+      75% { content: '...'; }
+    }
+
+    /* Progress bar */
+    .progress-wrap {
+      margin-top: 22px;
+      height: 3px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      transition: width .4s ease;
+    }
+
+    .loading-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 20px;
+      text-align: left;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      transition: color .3s;
+    }
+    .step.done  { color: var(--pos); }
+    .step.active { color: var(--text); }
+    .step-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all .3s;
+      font-size: 9px;
+    }
+    .step.done  .step-icon { background: var(--pos);    border-color: var(--pos); color: #fff; }
+    .step.active .step-icon { border-color: var(--accent); animation: pulse-ring .8s ease infinite; }
+    @keyframes pulse-ring {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(124,106,255,.4); }
+      50%       { box-shadow: 0 0 0 4px rgba(124,106,255,0); }
+    }
+
+    /* ── Error ── */
+    .error-card {
+      background: var(--neg-bg);
+      border: 1px solid var(--neg-border);
+      border-radius: var(--r);
+      padding: 16px 20px;
+      color: #fda4af;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .error-card svg { flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Mobile ── */
+    @media (max-width: 540px) {
+      .header { padding: 40px 0 32px; }
+      .tab-panel { padding: 20px; }
+      #result-area { padding: 0 20px 20px; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+      .two-col { grid-template-columns: 1fr; }
+      .result-header { flex-direction: column; align-items: flex-start; }
+      .stats-row { gap: 8px; }
+      .stat-pill { font-size: 0.72rem; padding: 5px 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-box">
+    <div class="leaf-wrap">
+        <div class="leaf leaf-1"></div>
+        <div class="leaf leaf-2"></div>
+        <div class="leaf leaf-3"></div>
+        <div class="leaf leaf-4"></div>
+        <div class="leaf-center"></div>
+      </div>
+    <div class="loading-title" id="loading-title">Analyzing</div>
+    <div class="loading-sub" id="loading-sub"><span class="dots">Processing</span></div>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div class="loading-steps" id="loading-steps"></div>
+  </div>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-badge">NLP Powered</div>
+  <h1>Twitter Sentiment<br/>Analysis</h1>
+  <p>Analyze the emotional tone of tweets using machine learning trained on real Twitter data.</p>
+  <div class="stats-row">
+    <div class="stat-pill"><strong>86%</strong> Accuracy</div>
+    <div class="stat-pill"><strong>4</strong> Sentiment Classes</div>
+    <div class="stat-pill"><strong>73k+</strong> Tweets Trained</div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="card">
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('text')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Analyze Text
+      </button>
+      <button class="tab-btn" onclick="switchTab('username')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        By Username
+      </button>
+    </div>
+
+    <!-- Tab: Text -->
+    <div id="tab-text" class="tab-panel active">
+      <label class="field-label" for="tweet-input">Tweet or Text</label>
+      <textarea id="tweet-input" placeholder="Paste or type any tweet text here..."></textarea>
+      <button class="btn" id="btn-text" onclick="analyzeText()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        Analyze Sentiment
+      </button>
+    </div>
+
+    <!-- Tab: Username -->
+    <div id="tab-username" class="tab-panel">
+      <label class="field-label" for="username-input">Twitter Username</label>
+      <input type="text" id="username-input" placeholder="e.g. elonmusk"/>
+      <div class="two-col">
+        <div>
+          <label class="field-label" style="margin-top:16px" for="count-input">Number of Tweets</label>
+          <input type="number" id="count-input" value="10" min="1" max="50"/>
+        </div>
+      </div>
+      <button class="btn" id="btn-user" onclick="analyzeUsername()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Fetch and Analyze
+      </button>
+    </div>
+
+    <!-- Results -->
+    <div id="result-area"></div>
+
+  </div>
+</div>
+
+<script>
+  // ── Loading overlay ──
+  let progressTimer = null;
+  let stepTimer     = null;
+
+  function showLoader(title, steps) {
+    document.getElementById('loading-title').textContent = title;
+    document.getElementById('loading-sub').innerHTML = '<span class="dots">Please wait</span>';
+    document.getElementById('result-area').innerHTML = '';
+
+    // Build steps
+    const stepsEl = document.getElementById('loading-steps');
+    stepsEl.innerHTML = steps.map((s, i) => `
+      <div class="step" id="step-${i}">
+        <div class="step-icon">${i+1}</div>
+        <span>${s}</span>
+      </div>`).join('');
+
+    // Animate progress bar
+    const bar = document.getElementById('progress-bar');
+    bar.style.width = '0%';
+    let pct = 0;
+    clearInterval(progressTimer);
+    progressTimer = setInterval(() => {
+      pct = Math.min(pct + Math.random() * 4, 88);
+      bar.style.width = pct + '%';
+    }, 300);
+
+    // Animate steps
+    let current = 0;
+    clearInterval(stepTimer);
+    activateStep(0, steps.length);
+    stepTimer = setInterval(() => {
+      current++;
+      if (current < steps.length) activateStep(current, steps.length);
+      else clearInterval(stepTimer);
+    }, Math.max(800, 2400 / steps.length));
+
+    document.getElementById('loading-overlay').classList.add('visible');
+  }
+
+  function activateStep(i, total) {
+    for (let j = 0; j < total; j++) {
+      const el = document.getElementById('step-' + j);
+      if (!el) continue;
+      el.classList.remove('done', 'active');
+      if (j < i)  el.classList.add('done'),   el.querySelector('.step-icon').textContent = '✓';
+      if (j === i) el.classList.add('active');
+    }
+  }
+
+  function hideLoader() {
+    clearInterval(progressTimer);
+    clearInterval(stepTimer);
+    const bar = document.getElementById('progress-bar');
+    bar.style.width = '100%';
+    // Mark all steps done
+    document.querySelectorAll('.step').forEach(el => {
+      el.classList.remove('active');
+      el.classList.add('done');
+      el.querySelector('.step-icon').textContent = '✓';
+    });
+    setTimeout(() => {
+      document.getElementById('loading-overlay').classList.remove('visible');
+    }, 400);
+  }
+
+  // ── Tabs ──
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) =>
+      b.classList.toggle('active', (i === 0) === (tab === 'text')));
+    document.getElementById('tab-text').classList.toggle('active', tab === 'text');
+    document.getElementById('tab-username').classList.toggle('active', tab === 'username');
+    document.getElementById('result-area').innerHTML = '';
+  }
+
+  function badge(s) {
+    return `<span class="badge badge-${s}">${s}</span>`;
+  }
+
+  function bars(scores) {
+    return `<div class="bars">` +
+      Object.entries(scores).sort((a,b) => b[1]-a[1]).map(([l,p]) => `
+        <div class="bar-row">
+          <span class="bar-lbl">${l}</span>
+          <div class="bar-track"><div class="bar-fill fill-${l}" style="width:${p}%"></div></div>
+          <span class="bar-pct">${p}%</span>
+        </div>`).join('') + `</div>`;
+  }
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function showError(msg) {
+    document.getElementById('result-area').innerHTML = `
+      <div class="section-divider"></div>
+      <div class="error-card">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        ${msg}
+      </div>`;
+  }
+
+  function singleResultHTML(data) {
+    return `
+      <div class="result-card card-${data.sentiment}">
+        <div class="result-header">
+          ${badge(data.sentiment)}
+          <span class="conf-tag">Confidence <strong>${data.confidence}%</strong></span>
+        </div>
+        <p class="tweet-text">${esc(data.text)}</p>
+        ${bars(data.scores)}
+      </div>`;
+  }
+
+  // ── Analyze text ──
+  async function analyzeText() {
+    const text = document.getElementById('tweet-input').value.trim();
+    if (!text) return;
+    const btn = document.getElementById('btn-text');
+    btn.disabled = true;
+    showLoader('Analyzing Sentiment', [
+      'Cleaning and tokenizing text',
+      'Extracting TF-IDF features',
+      'Running ML classifier',
+      'Calculating confidence scores'
+    ]);
+    try {
+      const res  = await fetch('/analyze/text', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({text})
+      });
+      const data = await res.json();
+      hideLoader();
+      if (data.error) { showError(data.error); return; }
+      document.getElementById('result-area').innerHTML = `
+        <div class="section-divider"></div>
+        ${singleResultHTML(data)}`;
+    } catch(e) {
+      hideLoader();
+      showError('Something went wrong. Please try again.');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ── Analyze username ──
+  async function analyzeUsername() {
+    const username = document.getElementById('username-input').value.trim().replace(/^@/,'');
+    const count    = parseInt(document.getElementById('count-input').value) || 10;
+    if (!username) return;
+    const btn = document.getElementById('btn-user');
+    btn.disabled = true;
+    showLoader('Fetching Tweets', [
+      `Looking up @${username}`,
+      'Connecting to Twitter API',
+      `Fetching ${count} tweets`,
+      'Running sentiment analysis',
+      'Building results summary'
+    ]);
+    try {
+      const res  = await fetch('/analyze/username', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username, count})
+      });
+      const data = await res.json();
+      hideLoader();
+      if (data.error) { showError(data.error); return; }
+
+      const ORDER = ['Positive','Negative','Neutral','Irrelevant'];
+      const summaryHTML = ORDER.filter(s => data.summary[s] != null).map(s => `
+        <div class="summary-cell">
+          <div class="s-pct pct-${s}">${data.summary[s]}%</div>
+          <div class="s-lbl">${s}</div>
+        </div>`).join('');
+
+      const tweetsHTML = data.tweets.map(t => singleResultHTML(t)).join('');
+
+      document.getElementById('result-area').innerHTML = `
+        <div class="section-divider"></div>
+        <p class="section-label">@${data.username} — ${data.tweets.length} tweets analyzed</p>
+        <div class="summary-grid">${summaryHTML}</div>
+        <p class="section-label">Individual Tweets</p>
+        <div class="tweet-list">${tweetsHTML}</div>`;
+    } catch(e) {
+      hideLoader();
+      showError('Something went wrong. Please try again.');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('tweet-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.ctrlKey) analyzeText();
+    });
+  });
+</script>
+</body>
+</html>
