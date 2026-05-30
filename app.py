@@ -11,10 +11,11 @@ app = Flask(__name__)
 
 MODEL_PATH = 'sentiment_model.pkl'
 if not os.path.exists(MODEL_PATH):
-    print("Training model for the first time...")
+    print("Model not found. Training now... this may take a minute.")
     model = train_and_save()
 else:
     model = load_model()
+    print("Model loaded successfully.")
 
 RAPID_API_KEY = os.getenv('RAPIDAPI_KEY', '')
 

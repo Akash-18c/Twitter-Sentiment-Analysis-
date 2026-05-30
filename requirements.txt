@@ -5,5 +5,4 @@ nltk
 joblib
 requests
 python-dotenv
-ntscraper
-twscrape
+gunicorn
