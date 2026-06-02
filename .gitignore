@@ -1,9 +1,6 @@
 # Environment variables - never commit this
 .env
 
-# Trained model - too large for git
-sentiment_model.pkl
-
 # Python cache
 __pycache__/
 *.py[cod]
